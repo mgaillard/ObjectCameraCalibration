@@ -3,17 +3,20 @@
 #include <QtMath>
 #include <QWheelEvent>
 
+#include "Similarity.h"
+
 ViewerWidget::ViewerWidget(QWidget* parent) :
 	QOpenGLWidget(parent),
 	m_logger(new QOpenGLDebugLogger(this)),
 	m_camera({ 0.0, 0.0, 1.0 },
 		     { 0.0, 0.0, 0.0 },
-		     { -1.0, 0.0, 1.0 },
+		     { -1.0, 0.0, 0.0 },
 		     qRadiansToDegrees(2.0 * atan(4.29 / (2.0 * 4.5))),
 		     4.0f / 3.0f, 0.01f, 10.0f),
 	m_objectVbo(QOpenGLBuffer::VertexBuffer),
 	m_objectEbo(QOpenGLBuffer::IndexBuffer),
-	m_objectTexture(QOpenGLTexture::Target2D)
+	m_objectTexture(QOpenGLTexture::Target2D),
+	m_targetTexture(QOpenGLTexture::Target2D)
 {
 	
 }
@@ -44,6 +47,19 @@ void ViewerWidget::printInfo()
 	qDebug() << "GLSL Version: " << QString::fromLatin1(reinterpret_cast<const char*>(glGetString(GL_SHADING_LANGUAGE_VERSION)));
 }
 
+void ViewerWidget::moveCamera(float xAngle, float yAngle, float zAngle)
+{
+	// Compute coordinates of the camera in spherical frame
+	const auto rotation = QQuaternion::fromEulerAngles(xAngle, yAngle, zAngle);
+	const auto rotation3x3 = rotation.toRotationMatrix();
+	const QMatrix4x4 rotation4x4(rotation3x3);
+
+	const QVector3D originalCameraPosition(0.0, 0.0, 1.0);
+
+	// Rotate the camera
+	m_camera.setEye(rotation4x4.map(originalCameraPosition));
+}
+
 void ViewerWidget::initializeGL()
 {
 	connect(context(), &QOpenGLContext::aboutToBeDestroyed, this, &ViewerWidget::cleanup);
@@ -65,6 +81,9 @@ void ViewerWidget::resizeGL(int w, int h)
 
 void ViewerWidget::paintGL()
 {
+	moveCamera(-30, 10, -5);
+
+	
 	auto f = context()->versionFunctions<QOpenGLFunctions_4_3_Core>();
 	
 	if (m_frameBuffer)
@@ -127,7 +146,12 @@ void ViewerWidget::paintGL()
 
 		// Save content of frame buffer
 		const QImage image(m_frameBuffer->toImage());
-		image.save("framebuffer.png");
+		// Compare to the target image
+		const QImage targetImage(":/MainWindow/Resources/target.png");
+
+		image.save("image.png");
+		
+		qDebug() << computeSimilarity(image, targetImage);
 	}
 }
 
@@ -192,7 +216,12 @@ void ViewerWidget::initialize()
 {
 	const QString shader_dir = ":/MainWindow/Shaders/";
 
-	// Init Program
+	// Init similarity compute shader
+	m_computeSimilarityProgram = std::make_unique<QOpenGLShaderProgram>();
+	m_computeSimilarityProgram->addShaderFromSourceFile(QOpenGLShader::Compute, shader_dir + "similarity_cs.glsl");
+	m_computeSimilarityProgram->link();
+
+	// Init shaders
 	m_program = std::make_unique<QOpenGLShaderProgram>();
 	m_program->addShaderFromSourceFile(QOpenGLShader::Vertex, shader_dir + "object_vs.glsl");
 	m_program->addShaderFromSourceFile(QOpenGLShader::Fragment, shader_dir + "object_fs.glsl");
@@ -200,7 +229,7 @@ void ViewerWidget::initialize()
 	m_program->bind();
 
 	// Initialize the frame buffer
-	m_frameBuffer = std::make_unique<QOpenGLFramebufferObject>(1008, 756);
+	m_frameBuffer = std::make_unique<QOpenGLFramebufferObject>(4032, 3024);
 
 	// Initialize vertices
 	initializeVbo();
@@ -271,4 +300,18 @@ void ViewerWidget::initializeTexture()
 	m_objectTexture.setWrapMode(QOpenGLTexture::ClampToEdge);
 	m_objectTexture.setSize(textureImage.width(), textureImage.height());
 	m_objectTexture.setData(textureImage.mirrored(), QOpenGLTexture::DontGenerateMipMaps);
+}
+
+void ViewerWidget::initializeTargetTexture()
+{
+	const QImage textureImage(":/MainWindow/Resources/target.png");
+
+	m_targetTexture.destroy();
+	m_targetTexture.create();
+	m_targetTexture.setFormat(QOpenGLTexture::RGBA32F);
+	m_targetTexture.setMinificationFilter(QOpenGLTexture::Linear);
+	m_targetTexture.setMagnificationFilter(QOpenGLTexture::Linear);
+	m_targetTexture.setWrapMode(QOpenGLTexture::ClampToEdge);
+	m_targetTexture.setSize(textureImage.width(), textureImage.height());
+	m_targetTexture.setData(textureImage.mirrored(), QOpenGLTexture::DontGenerateMipMaps);
 }

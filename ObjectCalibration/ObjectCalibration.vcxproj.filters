@@ -40,6 +40,9 @@
     <ClCompile Include="Camera.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="Similarity.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <QtMoc Include="MainWindow.h">
@@ -63,12 +66,18 @@
     <ClInclude Include="Camera.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="Similarity.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="Shaders\object_fs.glsl">
       <Filter>Shaders</Filter>
     </None>
     <None Include="Shaders\object_vs.glsl">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="Shaders\similarity_cs.glsl">
       <Filter>Shaders</Filter>
     </None>
   </ItemGroup>

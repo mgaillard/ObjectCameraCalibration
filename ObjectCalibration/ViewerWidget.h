@@ -29,6 +29,8 @@ public slots:
 	void cleanup();
 	void printInfo();
 
+	void moveCamera(float xAngle, float yAngle, float zAngle);
+
 protected:
 	void initializeGL() override;
 	void resizeGL(int w, int h) override;
@@ -44,12 +46,14 @@ private:
 	void initializeVbo();
 	void initializeEbo();
 	void initializeTexture();
+	void initializeTargetTexture();
 	
 	QOpenGLDebugLogger* m_logger;
 
 	OrbitCamera m_camera;
 
 	std::unique_ptr<QOpenGLShaderProgram> m_program;
+	std::unique_ptr<QOpenGLShaderProgram> m_computeSimilarityProgram;
 
 	// Add sheet of paper with UV coordinates
 	QOpenGLVertexArrayObject m_objectVao;
@@ -60,7 +64,8 @@ private:
 	// Texture in which to render
 	std::unique_ptr<QOpenGLFramebufferObject> m_frameBuffer;
 	
-	// TODO: Add target texture
+	// Target texture
+	QOpenGLTexture m_targetTexture;
 
 	// TODO: Add a compute shader to find the distance between two images
 };

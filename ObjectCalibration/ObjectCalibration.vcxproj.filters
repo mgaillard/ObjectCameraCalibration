@@ -26,6 +26,9 @@
     <Filter Include="Shaders">
       <UniqueIdentifier>{e22c249a-b498-4b9c-a567-2cbf7a201928}</UniqueIdentifier>
     </Filter>
+    <Filter Include="external">
+      <UniqueIdentifier>{b6d2bcbe-aea2-4a7b-ac63-19526b604b24}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp">
@@ -41,6 +44,12 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="Similarity.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\external\dlib\all\source.cpp">
+      <Filter>external</Filter>
+    </ClCompile>
+    <ClCompile Include="BundleAdjustment.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -67,6 +76,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Similarity.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="BundleAdjustment.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

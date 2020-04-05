@@ -10,6 +10,13 @@ class MainWindow : public QMainWindow
 public:
 	MainWindow(QWidget *parent = Q_NULLPTR);
 
+public slots:
+
+	void render();
+
 private:
+
+	void setupUi();
+	
 	Ui::MainWindowClass ui;
 };

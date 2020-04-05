@@ -31,6 +31,8 @@ public slots:
 
 	void moveCamera(float xAngle, float yAngle, float zAngle);
 
+	float renderAndComputeSimilarity(float xAngle, float yAngle, float zAngle);
+
 protected:
 	void initializeGL() override;
 	void resizeGL(int w, int h) override;
@@ -65,6 +67,7 @@ private:
 	std::unique_ptr<QOpenGLFramebufferObject> m_frameBuffer;
 	
 	// Target texture
+	QImage m_targetImage;
 	QOpenGLTexture m_targetTexture;
 
 	// TODO: Add a compute shader to find the distance between two images

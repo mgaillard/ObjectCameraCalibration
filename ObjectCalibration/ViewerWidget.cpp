@@ -60,6 +60,85 @@ void ViewerWidget::moveCamera(float xAngle, float yAngle, float zAngle)
 	m_camera.setEye(rotation4x4.map(originalCameraPosition));
 }
 
+float ViewerWidget::renderAndComputeSimilarity(float xAngle, float yAngle, float zAngle)
+{
+	float similarity = 0.0;
+	
+	makeCurrent();
+
+	auto f = context()->versionFunctions<QOpenGLFunctions_4_3_Core>();
+
+	if (m_frameBuffer)
+	{
+		// Attach the frame buffer and set the resolution of the viewport
+		m_frameBuffer->bind();
+		glViewport(0, 0, m_frameBuffer->width(), m_frameBuffer->height());
+		m_camera.setAspectRatio(float(m_frameBuffer->width()) / m_frameBuffer->height());
+		moveCamera(xAngle, yAngle, zAngle);
+	}
+
+	// Transparent background
+	glClearColor(0.0, 0.0, 0.0, 0.0);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	glEnable(GL_DEPTH_TEST);
+
+	// Enable transparency
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+	// Paint the object in the frame buffer
+	if (m_program)
+	{
+		// Setup matrices
+		const QMatrix4x4 worldMatrix;
+		const auto normalMatrix = worldMatrix.normalMatrix();
+		const auto viewMatrix = m_camera.viewMatrix();
+		const auto projectionMatrix = m_camera.projectionMatrix();
+		const auto pvMatrix = projectionMatrix * viewMatrix;
+		const auto pvmMatrix = pvMatrix * worldMatrix;
+
+		m_program->bind();
+
+		// Update matrices
+		m_program->setUniformValue("P", projectionMatrix);
+		m_program->setUniformValue("V", viewMatrix);
+		m_program->setUniformValue("M", worldMatrix);
+		m_program->setUniformValue("N", normalMatrix);
+		m_program->setUniformValue("PV", pvMatrix);
+		m_program->setUniformValue("PVM", pvmMatrix);
+
+		// Bind the VAO containing the patches
+		QOpenGLVertexArrayObject::Binder vaoBinder(&m_objectVao);
+
+		// Bind the texture
+		const auto textureUnit = 0;
+		m_program->setUniformValue("image", textureUnit);
+		m_objectTexture.bind(textureUnit);
+
+		f->glDrawElements(GL_TRIANGLES,
+			m_objectEbo.size(),
+			GL_UNSIGNED_INT,
+			nullptr);
+
+		m_program->release();
+	}
+
+	if (m_frameBuffer)
+	{
+		m_frameBuffer->release();
+		
+		// Save content of frame buffer
+		const QImage image(m_frameBuffer->toImage());
+		similarity = computeSimilarity(image, m_targetImage);
+
+		// image.save("image.png");
+	}
+
+	doneCurrent();
+
+	return similarity;
+}
+
 void ViewerWidget::initializeGL()
 {
 	connect(context(), &QOpenGLContext::aboutToBeDestroyed, this, &ViewerWidget::cleanup);
@@ -81,9 +160,10 @@ void ViewerWidget::resizeGL(int w, int h)
 
 void ViewerWidget::paintGL()
 {
-	moveCamera(-30, 10, -5);
-
+	glClearColor(0.5, 0.5, 0.5, 1.0);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	
+	/*
 	auto f = context()->versionFunctions<QOpenGLFunctions_4_3_Core>();
 	
 	if (m_frameBuffer)
@@ -149,10 +229,11 @@ void ViewerWidget::paintGL()
 		// Compare to the target image
 		const QImage targetImage(":/MainWindow/Resources/target.png");
 
-		image.save("image.png");
+		// image.save("image.png");
 		
 		qDebug() << computeSimilarity(image, targetImage);
 	}
+	*/
 }
 
 void ViewerWidget::mousePressEvent(QMouseEvent* event)
@@ -235,6 +316,7 @@ void ViewerWidget::initialize()
 	initializeVbo();
 	initializeEbo();
 	initializeTexture();
+	initializeTargetTexture();
 
 	// Init VAO
 	m_objectVao.create();
@@ -304,14 +386,14 @@ void ViewerWidget::initializeTexture()
 
 void ViewerWidget::initializeTargetTexture()
 {
-	const QImage textureImage(":/MainWindow/Resources/target.png");
-
+	m_targetImage.load(":/MainWindow/Resources/target.png");
+	
 	m_targetTexture.destroy();
 	m_targetTexture.create();
 	m_targetTexture.setFormat(QOpenGLTexture::RGBA32F);
 	m_targetTexture.setMinificationFilter(QOpenGLTexture::Linear);
 	m_targetTexture.setMagnificationFilter(QOpenGLTexture::Linear);
 	m_targetTexture.setWrapMode(QOpenGLTexture::ClampToEdge);
-	m_targetTexture.setSize(textureImage.width(), textureImage.height());
-	m_targetTexture.setData(textureImage.mirrored(), QOpenGLTexture::DontGenerateMipMaps);
+	m_targetTexture.setSize(m_targetImage.width(), m_targetImage.height());
+	m_targetTexture.setData(m_targetImage.mirrored(), QOpenGLTexture::DontGenerateMipMaps);
 }

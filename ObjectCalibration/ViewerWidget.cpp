@@ -60,10 +60,8 @@ void ViewerWidget::moveCamera(float xAngle, float yAngle, float zAngle)
 	m_camera.setEye(rotation4x4.map(originalCameraPosition));
 }
 
-float ViewerWidget::renderAndComputeSimilarity(float xAngle, float yAngle, float zAngle)
+QImage ViewerWidget::render(float xAngle, float yAngle, float zAngle)
 {
-	float similarity = 0.0;
-	
 	makeCurrent();
 
 	auto f = context()->versionFunctions<QOpenGLFunctions_4_3_Core>();
@@ -126,17 +124,21 @@ float ViewerWidget::renderAndComputeSimilarity(float xAngle, float yAngle, float
 	if (m_frameBuffer)
 	{
 		m_frameBuffer->release();
-		
-		// Save content of frame buffer
-		const QImage image(m_frameBuffer->toImage());
-		similarity = computeSimilarity(image, m_targetImage);
-
-		// image.save("image.png");
 	}
 
+	// Output the content of the frame buffer
+	const auto result = m_frameBuffer->toImage();
+	
 	doneCurrent();
 
-	return similarity;
+	return result;
+}
+
+float ViewerWidget::renderAndComputeSimilarity(float xAngle, float yAngle, float zAngle)
+{
+	const auto image = render(xAngle, yAngle, zAngle);
+	
+	return computeSimilarity(image, m_targetImage);
 }
 
 void ViewerWidget::initializeGL()

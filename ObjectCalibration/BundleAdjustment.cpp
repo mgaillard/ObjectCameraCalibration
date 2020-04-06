@@ -21,12 +21,15 @@ double BundleAdjustment::operator()(const ColumnVector& parameters) const
 
 	const auto similarity = m_viewerWidget->renderAndComputeSimilarity(xAngle, yAngle, zAngle);
 
-	qDebug() << "similarity " << similarity << " xAngle = " << xAngle;
+	qDebug() << "similarity " << similarity
+	         << " xAngle = " << xAngle
+	         << " yAngle = " << yAngle
+	         << " zAngle = " << zAngle;
 	
 	return similarity;
 }
 
-void runBundleAdjustment(
+QVector3D runBundleAdjustment(
 	ViewerWidget* viewerWidget,
 	const QImage& targetImage,
 	float xAngleInitial,
@@ -58,4 +61,6 @@ void runBundleAdjustment(
 	qDebug() << xAngle;
 	qDebug() << yAngle;
 	qDebug() << zAngle;
+
+	return QVector3D(xAngle, yAngle, zAngle);
 }

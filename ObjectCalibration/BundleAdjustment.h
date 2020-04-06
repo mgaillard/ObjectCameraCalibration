@@ -25,8 +25,8 @@ private:
 	ViewerWidget* m_viewerWidget;
 };
 
-void runBundleAdjustment(ViewerWidget* viewerWidget,
-	                     const QImage& targetImage,
-	                     float xAngleInitial,
-	                     float yAngleInitial,
-	                     float zAngleInitial);
+QVector3D runBundleAdjustment(ViewerWidget* viewerWidget,
+	                          const QImage& targetImage,
+	                          float xAngleInitial,
+	                          float yAngleInitial,
+	                          float zAngleInitial);

@@ -3,7 +3,6 @@
 #include <QtDebug>
 
 #include <dlib/optimization.h>
-#include <dlib/global_optimization.h>
 
 using namespace dlib;
 
@@ -36,7 +35,7 @@ QVector3D runBundleAdjustment(
 	float yAngleInitial,
 	float zAngleInitial)
 {
-	// TODO: Update image in the viewer
+	viewerWidget->setTargetImage(targetImage);
 
 	const BundleAdjustment problem(viewerWidget);
 	

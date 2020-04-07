@@ -31,6 +31,8 @@ public slots:
 
 	void moveCamera(float xAngle, float yAngle, float zAngle);
 
+	void setTargetImage(const QImage& targetImage);
+
 	QImage render(float xAngle, float yAngle, float zAngle);
 	
 	float renderAndComputeSimilarity(float xAngle, float yAngle, float zAngle);

@@ -1,7 +1,6 @@
 <RCC>
     <qresource prefix="/MainWindow">
         <file>Resources/pattern.png</file>
-        <file>Resources/target.png</file>
         <file>Shaders/object_fs.glsl</file>
         <file>Shaders/object_vs.glsl</file>
         <file>Shaders/similarity_cs.glsl</file>

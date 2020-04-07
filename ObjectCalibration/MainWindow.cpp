@@ -1,5 +1,9 @@
 #include "MainWindow.h"
 
+#include <QFileDialog>
+#include <QInputDialog>
+#include <QMessageBox>
+
 #include "BundleAdjustment.h"
 
 MainWindow::MainWindow(QWidget *parent)
@@ -10,17 +14,50 @@ MainWindow::MainWindow(QWidget *parent)
 
 void MainWindow::render()
 {
-	const QImage targetImage(":/MainWindow/Resources/target.png");
-	
-	const auto result = runBundleAdjustment(ui.viewerWidget, targetImage, -29.5, 10, -5);
+	// Ask the user for a file to import
+	const QString filename = QFileDialog::getOpenFileName(this,
+		                                                  tr("Load an image"),
+		                                                  "",
+		                                                  tr("Images (*.png *.jpg)"));
 
-	// Ground-truth
-	const auto groundTruth = ui.viewerWidget->render(-30, 10, -5);
-	groundTruth.save("image_groundtruth.png");
+	// Check if file exists
+	if (QFileInfo::exists(filename))
+	{
+		const QImage targetImage(filename);
 
-	// Best optimization
-	const auto optimized = ui.viewerWidget->render(result.x(), result.y(), result.z());
-	optimized.save("image_optimized.png");
+		// Ask for initial configuration
+		const double xAngleInitial = QInputDialog::getDouble(this, 
+			                                                 tr("Input Euler X angle"),
+			                                                 tr("Angle X"),
+			                                                 0.0,
+			                                                 -45.0,
+			                                                 45.0,
+			                                                 2);
+
+		const double yAngleInitial = QInputDialog::getDouble(this, 
+			                                                 tr("Input Euler Y angle"),
+			                                                 tr("Angle Y"),
+			                                                 0.0,
+			                                                 -45.0,
+			                                                 45.0,
+			                                                 2);
+
+		const double zAngleInitial = QInputDialog::getDouble(this, 
+			                                                 tr("Input Euler Z angle"),
+			                                                 tr("Angle Z"),
+			                                                 0.0,
+			                                                 -45.0,
+			                                                 45.0,
+			                                                 2);
+
+		const auto result = runBundleAdjustment(ui.viewerWidget, targetImage, xAngleInitial, yAngleInitial, zAngleInitial);
+		
+		// Best optimization
+		const auto optimized = ui.viewerWidget->render(result.x(), result.y(), result.z());
+		optimized.save("image_optimized.png");
+	}
+
+	// TODO: Compute similarity in compute shader
 }
 
 void MainWindow::setupUi()

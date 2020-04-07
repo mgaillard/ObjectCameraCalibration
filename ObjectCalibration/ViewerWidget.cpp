@@ -53,11 +53,23 @@ void ViewerWidget::moveCamera(float xAngle, float yAngle, float zAngle)
 	const auto rotation = QQuaternion::fromEulerAngles(xAngle, yAngle, zAngle);
 	const auto rotation3x3 = rotation.toRotationMatrix();
 	const QMatrix4x4 rotation4x4(rotation3x3);
+	const QMatrix4x4 rotationNormalMatrix4x4(rotation4x4.normalMatrix());
 
 	const QVector3D originalCameraPosition(0.0, 0.0, 1.0);
+	const QVector3D originalCameraUp(-1.0, 0.0, 0.0);
 
 	// Rotate the camera
 	m_camera.setEye(rotation4x4.map(originalCameraPosition));
+	m_camera.setUp(rotationNormalMatrix4x4.map(originalCameraUp));
+}
+
+void ViewerWidget::setTargetImage(const QImage& targetImage)
+{
+	m_targetImage = targetImage;
+
+	makeCurrent();
+	initializeTargetTexture();
+	doneCurrent();
 }
 
 QImage ViewerWidget::render(float xAngle, float yAngle, float zAngle)
@@ -66,13 +78,14 @@ QImage ViewerWidget::render(float xAngle, float yAngle, float zAngle)
 
 	auto f = context()->versionFunctions<QOpenGLFunctions_4_3_Core>();
 
+	moveCamera(xAngle, yAngle, zAngle);
+	
 	if (m_frameBuffer)
 	{
 		// Attach the frame buffer and set the resolution of the viewport
 		m_frameBuffer->bind();
 		glViewport(0, 0, m_frameBuffer->width(), m_frameBuffer->height());
 		m_camera.setAspectRatio(float(m_frameBuffer->width()) / m_frameBuffer->height());
-		moveCamera(xAngle, yAngle, zAngle);
 	}
 
 	// Transparent background
@@ -388,14 +401,15 @@ void ViewerWidget::initializeTexture()
 
 void ViewerWidget::initializeTargetTexture()
 {
-	m_targetImage.load(":/MainWindow/Resources/target.png");
-	
-	m_targetTexture.destroy();
-	m_targetTexture.create();
-	m_targetTexture.setFormat(QOpenGLTexture::RGBA32F);
-	m_targetTexture.setMinificationFilter(QOpenGLTexture::Linear);
-	m_targetTexture.setMagnificationFilter(QOpenGLTexture::Linear);
-	m_targetTexture.setWrapMode(QOpenGLTexture::ClampToEdge);
-	m_targetTexture.setSize(m_targetImage.width(), m_targetImage.height());
-	m_targetTexture.setData(m_targetImage.mirrored(), QOpenGLTexture::DontGenerateMipMaps);
+	if (m_targetImage.width() > 0 && m_targetImage.height() > 0)
+	{
+		m_targetTexture.destroy();
+		m_targetTexture.create();
+		m_targetTexture.setFormat(QOpenGLTexture::RGBA32F);
+		m_targetTexture.setMinificationFilter(QOpenGLTexture::Linear);
+		m_targetTexture.setMagnificationFilter(QOpenGLTexture::Linear);
+		m_targetTexture.setWrapMode(QOpenGLTexture::ClampToEdge);
+		m_targetTexture.setSize(m_targetImage.width(), m_targetImage.height());
+		m_targetTexture.setData(m_targetImage.mirrored(), QOpenGLTexture::DontGenerateMipMaps);
+	}
 }

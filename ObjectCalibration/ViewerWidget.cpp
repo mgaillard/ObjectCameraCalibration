@@ -189,9 +189,9 @@ float ViewerWidget::renderAndComputeSimilarityGpu(float xAngle, float yAngle, fl
 		// Bind the atomic counters (binding = 2)
 		f->glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, m_similarityAtomicBuffer);
 		f->glBindBufferBase(GL_ATOMIC_COUNTER_BUFFER, 2, m_similarityAtomicBuffer);
-		// Init the 3 atomic counters with a value of 0
-		GLuint counterValues[3] = { 0, 0, 0 };
-		f->glBufferSubData(GL_ATOMIC_COUNTER_BUFFER, 0, 3 * sizeof(GLuint), counterValues);
+		// Init the 5 atomic counters with a value of 0
+		GLuint counterValues[5] = { 0, 0, 0, 0, 0 };
+		f->glBufferSubData(GL_ATOMIC_COUNTER_BUFFER, 0, 5 * sizeof(GLuint), counterValues);
 
 		// Compute the number of blocks in each dimensions
 		const int blocksX = std::max(1, 1 + ((m_frameBuffer->width() - 1) / localSizeX));
@@ -201,7 +201,7 @@ float ViewerWidget::renderAndComputeSimilarityGpu(float xAngle, float yAngle, fl
 		f->glMemoryBarrier(GL_ATOMIC_COUNTER_BARRIER_BIT);
 
 		// Read back values of the atomic counters
-		f->glGetBufferSubData(GL_ATOMIC_COUNTER_BUFFER, 0, 3 * sizeof(GLuint), counterValues);
+		f->glGetBufferSubData(GL_ATOMIC_COUNTER_BUFFER, 0, 5 * sizeof(GLuint), counterValues);
 
 		// Unbind atomic buffer and textures
 		f->glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, 0);
@@ -213,8 +213,14 @@ float ViewerWidget::renderAndComputeSimilarityGpu(float xAngle, float yAngle, fl
 		const auto tp = float(counterValues[0]);
 		const auto fp = float(counterValues[1]);
 		const auto fn = float(counterValues[2]);
+		const auto numerator = float(counterValues[3]) / 100.f;
+		const auto denominator = float(counterValues[4]) / 100.f;
 
-		diceCoefficient = (2.f * tp) / (2.f * tp + fp + fn);
+		// Compute the Dice Coefficient
+		// diceCoefficient = (2.f * tp) / (2.f * tp + fp + fn);
+
+		// Compute the fuzzy Dice Coefficient
+		diceCoefficient = 2.f * (numerator + 1.f) / (denominator + 1.f);
 	}
 	doneCurrent();
 
@@ -490,9 +496,9 @@ void ViewerWidget::initializeComputeShader()
 
 	// Declare and generate a buffer object name
 	f->glGenBuffers(1, &m_similarityAtomicBuffer);
-	// Bind the buffer and define its initial storage capacity (3 uint)
+	// Bind the buffer and define its initial storage capacity (5 uint)
 	f->glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, m_similarityAtomicBuffer);
-	f->glBufferData(GL_ATOMIC_COUNTER_BUFFER, 3 * sizeof(GLuint), NULL, GL_DYNAMIC_READ);
+	f->glBufferData(GL_ATOMIC_COUNTER_BUFFER, 5 * sizeof(GLuint), NULL, GL_DYNAMIC_READ);
 	// Unbind the buffer 
 	f->glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, 0);
 }

@@ -160,7 +160,7 @@ float ViewerWidget::renderAndComputeSimilarityCpu(float xAngle, float yAngle, fl
 
 float ViewerWidget::renderAndComputeSimilarityGpu(float xAngle, float yAngle, float zAngle)
 {
-	float diceCoefficient = 0.0f;
+	float similarity = 0.0f;
 	
 	makeCurrent();
 
@@ -175,8 +175,12 @@ float ViewerWidget::renderAndComputeSimilarityGpu(float xAngle, float yAngle, fl
 		// Local size in the compute shader
 		const int localSizeX = 4;
 		const int localSizeY = 4;
+		const float multiplicationBeforeRound = 100.0;
 
 		m_computeSimilarityProgram->bind();
+
+		// Coefficient when multiplying before rounding (the number of decimals we keep)
+		m_computeSimilarityProgram->setUniformValue("multiplication_before_round", multiplicationBeforeRound);
 
 		// Bind the target texture as an image
 		const auto targetImageUnit = 0;
@@ -189,9 +193,9 @@ float ViewerWidget::renderAndComputeSimilarityGpu(float xAngle, float yAngle, fl
 		// Bind the atomic counters (binding = 2)
 		f->glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, m_similarityAtomicBuffer);
 		f->glBindBufferBase(GL_ATOMIC_COUNTER_BUFFER, 2, m_similarityAtomicBuffer);
-		// Init the 5 atomic counters with a value of 0
-		GLuint counterValues[5] = { 0, 0, 0, 0, 0 };
-		f->glBufferSubData(GL_ATOMIC_COUNTER_BUFFER, 0, 5 * sizeof(GLuint), counterValues);
+		// Init the 6 atomic counters with a value of 0
+		GLuint counterValues[6] = { 0, 0, 0, 0, 0, 0 };
+		f->glBufferSubData(GL_ATOMIC_COUNTER_BUFFER, 0, 6 * sizeof(GLuint), counterValues);
 
 		// Compute the number of blocks in each dimensions
 		const int blocksX = std::max(1, 1 + ((m_frameBuffer->width() - 1) / localSizeX));
@@ -201,7 +205,7 @@ float ViewerWidget::renderAndComputeSimilarityGpu(float xAngle, float yAngle, fl
 		f->glMemoryBarrier(GL_ATOMIC_COUNTER_BARRIER_BIT);
 
 		// Read back values of the atomic counters
-		f->glGetBufferSubData(GL_ATOMIC_COUNTER_BUFFER, 0, 5 * sizeof(GLuint), counterValues);
+		f->glGetBufferSubData(GL_ATOMIC_COUNTER_BUFFER, 0, 6 * sizeof(GLuint), counterValues);
 
 		// Unbind atomic buffer and textures
 		f->glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, 0);
@@ -213,18 +217,25 @@ float ViewerWidget::renderAndComputeSimilarityGpu(float xAngle, float yAngle, fl
 		const auto tp = float(counterValues[0]);
 		const auto fp = float(counterValues[1]);
 		const auto fn = float(counterValues[2]);
-		const auto numerator = float(counterValues[3]) / 100.f;
-		const auto denominator = float(counterValues[4]) / 100.f;
+		const auto numerator = float(counterValues[3]) / multiplicationBeforeRound;
+		const auto denominator = float(counterValues[4]) / multiplicationBeforeRound;
+		const auto maeSum = float(counterValues[5]) / multiplicationBeforeRound;
 
 		// Compute the Dice Coefficient
-		// diceCoefficient = (2.f * tp) / (2.f * tp + fp + fn);
+		const auto diceCoefficient = (2.f * tp) / (2.f * tp + fp + fn);
 
 		// Compute the fuzzy Dice Coefficient
-		diceCoefficient = 2.f * (numerator + 1.f) / (denominator + 1.f);
+		const auto fuzzyDiceCoefficient = 2.f * (numerator + 1.f) / (denominator + 1.f);
+
+		// Compute the mean absolute error
+		const auto mae = maeSum / float(tp);
+
+		// The similarity is 90% based on silhouettes overlap and 10% based on absolute error
+		similarity = 0.9f * fuzzyDiceCoefficient + 0.1f * mae;
 	}
 	doneCurrent();
 
-	return diceCoefficient;
+	return similarity;
 }
 
 void ViewerWidget::initializeGL()
@@ -496,9 +507,9 @@ void ViewerWidget::initializeComputeShader()
 
 	// Declare and generate a buffer object name
 	f->glGenBuffers(1, &m_similarityAtomicBuffer);
-	// Bind the buffer and define its initial storage capacity (5 uint)
+	// Bind the buffer and define its initial storage capacity (6 uint)
 	f->glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, m_similarityAtomicBuffer);
-	f->glBufferData(GL_ATOMIC_COUNTER_BUFFER, 5 * sizeof(GLuint), NULL, GL_DYNAMIC_READ);
+	f->glBufferData(GL_ATOMIC_COUNTER_BUFFER, 6 * sizeof(GLuint), NULL, GL_DYNAMIC_READ);
 	// Unbind the buffer 
 	f->glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, 0);
 }

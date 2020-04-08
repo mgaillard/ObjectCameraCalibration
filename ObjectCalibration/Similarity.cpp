@@ -4,13 +4,13 @@ float computeSimilarity(const QImage& image, const QImage& target)
 {
 	assert(image.size() == target.size());
 
-	double mse = 0.0;
+	double mae = 0.0;
 	long long truePositives = 0;
 
 	double diceNumerator = 0.0;
 	double diceDenominator = 0.0;
 
-	#pragma omp parallel for shared(mse, truePositives, diceNumerator, diceDenominator)
+	#pragma omp parallel for shared(mae, truePositives, diceNumerator, diceDenominator)
 	for (int i = 0; i < image.height(); i++)
 	{
 		for (int j = 0; j < image.width(); j++)
@@ -32,16 +32,16 @@ float computeSimilarity(const QImage& image, const QImage& target)
 				#pragma omp atomic
 				truePositives++;				
 				#pragma omp atomic
-				mse += std::abs(imageColor.valueF() - targetColor.valueF());
+				mae += std::abs(imageColor.valueF() - targetColor.valueF());
 			}
 		}
 	}
 
-	// mse is the mean squared error only on the overlap zone
-	mse /= float(truePositives);
+	// mae is the mean absolute error only on the overlap zone
+	mae /= float(truePositives);
 
 	// Overlap between the two objects
 	const auto diceCoefficient = 2.0f * (diceNumerator + 1.0) / (diceDenominator + 1.0);
 	
-	return 0.9 * diceCoefficient + 0.1 * mse;
+	return 0.9 * diceCoefficient + 0.1 * mae;
 }

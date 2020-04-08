@@ -18,7 +18,7 @@ double BundleAdjustment::operator()(const ColumnVector& parameters) const
 	const auto yAngle = parameters(1);
 	const auto zAngle = parameters(2);
 
-	const auto similarity = m_viewerWidget->renderAndComputeSimilarityCpu(xAngle, yAngle, zAngle);
+	const auto similarity = m_viewerWidget->renderAndComputeSimilarityGpu(xAngle, yAngle, zAngle);
 
 	qDebug() << "similarity " << similarity
 	         << " xAngle = " << xAngle

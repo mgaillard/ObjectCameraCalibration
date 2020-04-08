@@ -33,9 +33,12 @@ public slots:
 
 	void setTargetImage(const QImage& targetImage);
 
-	QImage render(float xAngle, float yAngle, float zAngle);
 	
-	float renderAndComputeSimilarity(float xAngle, float yAngle, float zAngle);
+	
+	QImage renderToImage(float xAngle, float yAngle, float zAngle);
+
+	float renderAndComputeSimilarityCpu(float xAngle, float yAngle, float zAngle);
+	float renderAndComputeSimilarityGpu(float xAngle, float yAngle, float zAngle);
 
 protected:
 	void initializeGL() override;
@@ -53,6 +56,9 @@ private:
 	void initializeEbo();
 	void initializeTexture();
 	void initializeTargetTexture();
+	void initializeComputeShader();
+
+	void render(float xAngle, float yAngle, float zAngle);
 	
 	QOpenGLDebugLogger* m_logger;
 
@@ -69,6 +75,9 @@ private:
 
 	// Texture in which to render
 	std::unique_ptr<QOpenGLFramebufferObject> m_frameBuffer;
+
+	// Atomic buffer for computing the similarity in the compute shader
+	GLuint m_similarityAtomicBuffer;
 	
 	// Target texture
 	QImage m_targetImage;

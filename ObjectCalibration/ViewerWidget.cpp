@@ -72,10 +72,8 @@ void ViewerWidget::setTargetImage(const QImage& targetImage)
 	doneCurrent();
 }
 
-QImage ViewerWidget::render(float xAngle, float yAngle, float zAngle)
+void ViewerWidget::render(float xAngle, float yAngle, float zAngle)
 {
-	makeCurrent();
-
 	auto f = context()->versionFunctions<QOpenGLFunctions_4_3_Core>();
 
 	moveCamera(xAngle, yAngle, zAngle);
@@ -85,7 +83,7 @@ QImage ViewerWidget::render(float xAngle, float yAngle, float zAngle)
 		// Attach the frame buffer and set the resolution of the viewport
 		m_frameBuffer->bind();
 		glViewport(0, 0, m_frameBuffer->width(), m_frameBuffer->height());
-		m_camera.setAspectRatio(float(m_frameBuffer->width()) / m_frameBuffer->height());
+		m_camera.setAspectRatio(float(m_frameBuffer->width()) / float(m_frameBuffer->height()));
 	}
 
 	// Transparent background
@@ -138,20 +136,89 @@ QImage ViewerWidget::render(float xAngle, float yAngle, float zAngle)
 	{
 		m_frameBuffer->release();
 	}
+}
+
+QImage ViewerWidget::renderToImage(float xAngle, float yAngle, float zAngle)
+{
+	makeCurrent();
 
 	// Output the content of the frame buffer
+	render(xAngle, yAngle, zAngle);
 	const auto result = m_frameBuffer->toImage();
-	
+
 	doneCurrent();
 
 	return result;
 }
 
-float ViewerWidget::renderAndComputeSimilarity(float xAngle, float yAngle, float zAngle)
+float ViewerWidget::renderAndComputeSimilarityCpu(float xAngle, float yAngle, float zAngle)
 {
-	const auto image = render(xAngle, yAngle, zAngle);
-	
+	const auto image = renderToImage(xAngle, yAngle, zAngle);
+
 	return computeSimilarity(image, m_targetImage);
+}
+
+float ViewerWidget::renderAndComputeSimilarityGpu(float xAngle, float yAngle, float zAngle)
+{
+	float diceCoefficient = 0.0f;
+	
+	makeCurrent();
+
+	// Render the image in the frame buffer
+	render(xAngle, yAngle, zAngle);
+
+	auto f = context()->versionFunctions<QOpenGLFunctions_4_3_Core>();
+	
+	// Use the compute shader
+	if (m_computeSimilarityProgram)
+	{
+		// Local size in the compute shader
+		const int localSizeX = 4;
+		const int localSizeY = 4;
+
+		m_computeSimilarityProgram->bind();
+
+		// Bind the target texture as an image
+		const auto targetImageUnit = 0;
+		f->glBindImageTexture(targetImageUnit, m_targetTexture.textureId(), 0, GL_FALSE, 0, GL_READ_ONLY, GL_RGBA8);
+
+		// Bind the frame buffer texture as an image
+		const auto frameBufferImageUnit = 1;
+		f->glBindImageTexture(frameBufferImageUnit, m_frameBuffer->texture(), 0, GL_FALSE, 0, GL_READ_ONLY, GL_RGBA8);
+
+		// Bind the atomic counters (binding = 2)
+		f->glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, m_similarityAtomicBuffer);
+		f->glBindBufferBase(GL_ATOMIC_COUNTER_BUFFER, 2, m_similarityAtomicBuffer);
+		// Init the 3 atomic counters with a value of 0
+		GLuint counterValues[3] = { 0, 0, 0 };
+		f->glBufferSubData(GL_ATOMIC_COUNTER_BUFFER, 0, 3 * sizeof(GLuint), counterValues);
+
+		// Compute the number of blocks in each dimensions
+		const int blocksX = std::max(1, 1 + ((m_frameBuffer->width() - 1) / localSizeX));
+		const int blocksY = std::max(1, 1 + ((m_frameBuffer->height() - 1) / localSizeY));
+		// Launch the compute shader and wait for it to finish
+		f->glDispatchCompute(blocksX, blocksY, 1);
+		f->glMemoryBarrier(GL_ATOMIC_COUNTER_BARRIER_BIT);
+
+		// Read back values of the atomic counters
+		f->glGetBufferSubData(GL_ATOMIC_COUNTER_BUFFER, 0, 3 * sizeof(GLuint), counterValues);
+
+		// Unbind atomic buffer and textures
+		f->glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, 0);
+		f->glBindImageTexture(frameBufferImageUnit, 0, 0, GL_FALSE, 0, GL_READ_ONLY, GL_RGBA8);
+		f->glBindImageTexture(targetImageUnit, 0, 0, GL_FALSE, 0, GL_READ_ONLY, GL_RGBA8);
+
+		m_computeSimilarityProgram->release();
+
+		const auto tp = float(counterValues[0]);
+		const auto fp = float(counterValues[1]);
+		const auto fn = float(counterValues[2]);
+
+		diceCoefficient = (2.f * tp) / (2.f * tp + fp + fn);
+	}
+	doneCurrent();
+
+	return diceCoefficient;
 }
 
 void ViewerWidget::initializeGL()
@@ -312,11 +379,6 @@ void ViewerWidget::initialize()
 {
 	const QString shader_dir = ":/MainWindow/Shaders/";
 
-	// Init similarity compute shader
-	m_computeSimilarityProgram = std::make_unique<QOpenGLShaderProgram>();
-	m_computeSimilarityProgram->addShaderFromSourceFile(QOpenGLShader::Compute, shader_dir + "similarity_cs.glsl");
-	m_computeSimilarityProgram->link();
-
 	// Init shaders
 	m_program = std::make_unique<QOpenGLShaderProgram>();
 	m_program->addShaderFromSourceFile(QOpenGLShader::Vertex, shader_dir + "object_vs.glsl");
@@ -332,6 +394,7 @@ void ViewerWidget::initialize()
 	initializeEbo();
 	initializeTexture();
 	initializeTargetTexture();
+	initializeComputeShader();
 
 	// Init VAO
 	m_objectVao.create();
@@ -391,7 +454,7 @@ void ViewerWidget::initializeTexture()
 	
 	m_objectTexture.destroy();
 	m_objectTexture.create();
-	m_objectTexture.setFormat(QOpenGLTexture::RGBA32F);
+	m_objectTexture.setFormat(QOpenGLTexture::RGBA8_UNorm);
 	m_objectTexture.setMinificationFilter(QOpenGLTexture::Linear);
 	m_objectTexture.setMagnificationFilter(QOpenGLTexture::Linear);
 	m_objectTexture.setWrapMode(QOpenGLTexture::ClampToEdge);
@@ -405,11 +468,31 @@ void ViewerWidget::initializeTargetTexture()
 	{
 		m_targetTexture.destroy();
 		m_targetTexture.create();
-		m_targetTexture.setFormat(QOpenGLTexture::RGBA32F);
+		m_targetTexture.setFormat(QOpenGLTexture::RGBA8_UNorm);
 		m_targetTexture.setMinificationFilter(QOpenGLTexture::Linear);
 		m_targetTexture.setMagnificationFilter(QOpenGLTexture::Linear);
 		m_targetTexture.setWrapMode(QOpenGLTexture::ClampToEdge);
 		m_targetTexture.setSize(m_targetImage.width(), m_targetImage.height());
 		m_targetTexture.setData(m_targetImage.mirrored(), QOpenGLTexture::DontGenerateMipMaps);
 	}
+}
+
+void ViewerWidget::initializeComputeShader()
+{
+	const QString shader_dir = ":/MainWindow/Shaders/";
+	
+	// Init similarity compute shader
+	m_computeSimilarityProgram = std::make_unique<QOpenGLShaderProgram>();
+	m_computeSimilarityProgram->addShaderFromSourceFile(QOpenGLShader::Compute, shader_dir + "similarity_cs.glsl");
+	m_computeSimilarityProgram->link();
+
+	auto f = context()->versionFunctions<QOpenGLFunctions_4_3_Core>();
+
+	// Declare and generate a buffer object name
+	f->glGenBuffers(1, &m_similarityAtomicBuffer);
+	// Bind the buffer and define its initial storage capacity (3 uint)
+	f->glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, m_similarityAtomicBuffer);
+	f->glBufferData(GL_ATOMIC_COUNTER_BUFFER, 3 * sizeof(GLuint), NULL, GL_DYNAMIC_READ);
+	// Unbind the buffer 
+	f->glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, 0);
 }

@@ -53,7 +53,7 @@ void MainWindow::render()
 		const auto result = runBundleAdjustment(ui.viewerWidget, targetImage, xAngleInitial, yAngleInitial, zAngleInitial);
 		
 		// Best optimization
-		const auto optimized = ui.viewerWidget->render(result.x(), result.y(), result.z());
+		const auto optimized = ui.viewerWidget->renderToImage(result.x(), result.y(), result.z());
 		optimized.save("image_optimized.png");
 	}
 

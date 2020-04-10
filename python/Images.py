@@ -75,11 +75,11 @@ class Images(object):
         images = images.astype('float32')
         images = images / (255.0)
 
-        mean = np.mean(images)
-        std = np.std(images)
-        min = np.amin(images)
-        max = np.amax(images)
-        print('mean: %.2f\tstd: %.2f\tmin: %.2f\tmax: %.2f' % (mean, std, min, max))
+        # mean = np.mean(images)
+        # std = np.std(images)
+        # min = np.amin(images)
+        # max = np.amax(images)
+        # print('mean: %.2f\tstd: %.2f\tmin: %.2f\tmax: %.2f' % (mean, std, min, max))
         # images = (images - mean)/std
 
         return images
@@ -125,8 +125,11 @@ class Images(object):
                 x = float(file.readline())
                 y = float(file.readline())
                 z = float(file.readline())
-            data.append([x, y, z])
-        return np.array(data)
+                angle_x = float(file.readline())
+                angle_y = float(file.readline())
+                angle_z = float(file.readline())
+            data.append([x, y, z, angle_x, angle_y, angle_z])
+        return np.array(data).astype('float32')
 
 
     @classmethod

@@ -11,6 +11,7 @@
 #include <QOpenGLFramebufferObject>
 
 #include "Camera.h"
+#include "ObjectPose.h"
 
 class ViewerWidget : public QOpenGLWidget, protected QOpenGLFunctions_4_3_Core
 {
@@ -29,16 +30,14 @@ public slots:
 	void cleanup();
 	void printInfo();
 
-	void moveCamera(float xAngle, float yAngle, float zAngle);
-
 	void setTargetImage(const QImage& targetImage);
-
 	
+	void moveCamera(const ObjectPose& pose);
 	
-	QImage renderToImage(float xAngle, float yAngle, float zAngle);
+	QImage renderToImage(const ObjectPose& pose);
 
-	float renderAndComputeSimilarityCpu(float xAngle, float yAngle, float zAngle);
-	float renderAndComputeSimilarityGpu(float xAngle, float yAngle, float zAngle);
+	float renderAndComputeSimilarityCpu(const ObjectPose& pose);
+	float renderAndComputeSimilarityGpu(const ObjectPose& pose);
 
 protected:
 	void initializeGL() override;
@@ -58,7 +57,7 @@ private:
 	void initializeTargetTexture();
 	void initializeComputeShader();
 
-	void render(float xAngle, float yAngle, float zAngle);
+	void render(const ObjectPose& pose);
 	
 	QOpenGLDebugLogger* m_logger;
 

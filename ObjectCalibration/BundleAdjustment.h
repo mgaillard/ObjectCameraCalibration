@@ -2,6 +2,7 @@
 
 #include <dlib/matrix/matrix.h>
 
+#include "ObjectPose.h"
 #include "ViewerWidget.h"
 
 class BundleAdjustment
@@ -19,14 +20,16 @@ public:
 	 * \return The value of the objective function
 	 */
 	double operator()(const ColumnVector& parameters) const;
+
+	static ColumnVector objectPoseToParameters(const ObjectPose& pose);
+
+	static ObjectPose parametersToObjectPose(const ColumnVector& parameters);
 	
 private:
 
 	ViewerWidget* m_viewerWidget;
 };
 
-QVector3D runBundleAdjustment(ViewerWidget* viewerWidget,
-	                          const QImage& targetImage,
-	                          float xAngleInitial,
-	                          float yAngleInitial,
-	                          float zAngleInitial);
+ObjectPose runBundleAdjustment(ViewerWidget* viewerWidget,
+	                           const QImage& targetImage,
+	                           const ObjectPose& pose);

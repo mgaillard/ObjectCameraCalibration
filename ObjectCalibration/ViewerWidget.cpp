@@ -47,20 +47,30 @@ void ViewerWidget::printInfo()
 	qDebug() << "GLSL Version: " << QString::fromLatin1(reinterpret_cast<const char*>(glGetString(GL_SHADING_LANGUAGE_VERSION)));
 }
 
-void ViewerWidget::moveCamera(float xAngle, float yAngle, float zAngle)
+void ViewerWidget::moveCamera(const ObjectPose& pose)
 {
 	// Compute coordinates of the camera in spherical frame
-	const auto rotation = QQuaternion::fromEulerAngles(xAngle, yAngle, zAngle);
+	const auto rotation = QQuaternion::fromEulerAngles(pose.rotation.x(), pose.rotation.y(), pose.rotation.z());
 	const auto rotation3x3 = rotation.toRotationMatrix();
 	const QMatrix4x4 rotation4x4(rotation3x3);
-	const QMatrix4x4 rotationNormalMatrix4x4(rotation4x4.normalMatrix());
 
-	const QVector3D originalCameraPosition(0.0, 0.0, 1.0);
+	// Translation of the camera
+	QMatrix4x4 translation;
+	translation.translate(pose.translation);
+
+	// Complete transformation of the camera
+	const auto transformation = translation * rotation4x4;
+	const QMatrix4x4 normalMatrix(transformation.normalMatrix());
+
+	// Position of camera before transformation
+	const QVector3D originalCameraEye(0.0, 0.0, 1.0);
 	const QVector3D originalCameraUp(-1.0, 0.0, 0.0);
+	const QVector3D originalCameraAt(0.0, 0.0, 0.0);
 
-	// Rotate the camera
-	m_camera.setEye(rotation4x4.map(originalCameraPosition));
-	m_camera.setUp(rotationNormalMatrix4x4.map(originalCameraUp));
+	// Transform the camera
+	m_camera.setEye(transformation.map(originalCameraEye));
+	m_camera.setUp(normalMatrix.map(originalCameraUp));
+	m_camera.setAt(translation.map(originalCameraAt));
 }
 
 void ViewerWidget::setTargetImage(const QImage& targetImage)
@@ -72,11 +82,11 @@ void ViewerWidget::setTargetImage(const QImage& targetImage)
 	doneCurrent();
 }
 
-void ViewerWidget::render(float xAngle, float yAngle, float zAngle)
+void ViewerWidget::render(const ObjectPose& pose)
 {
 	auto f = context()->versionFunctions<QOpenGLFunctions_4_3_Core>();
 
-	moveCamera(xAngle, yAngle, zAngle);
+	moveCamera(pose);
 	
 	if (m_frameBuffer)
 	{
@@ -138,12 +148,12 @@ void ViewerWidget::render(float xAngle, float yAngle, float zAngle)
 	}
 }
 
-QImage ViewerWidget::renderToImage(float xAngle, float yAngle, float zAngle)
+QImage ViewerWidget::renderToImage(const ObjectPose& pose)
 {
 	makeCurrent();
 
 	// Output the content of the frame buffer
-	render(xAngle, yAngle, zAngle);
+	render(pose);
 	const auto result = m_frameBuffer->toImage();
 
 	doneCurrent();
@@ -151,21 +161,21 @@ QImage ViewerWidget::renderToImage(float xAngle, float yAngle, float zAngle)
 	return result;
 }
 
-float ViewerWidget::renderAndComputeSimilarityCpu(float xAngle, float yAngle, float zAngle)
+float ViewerWidget::renderAndComputeSimilarityCpu(const ObjectPose& pose)
 {
-	const auto image = renderToImage(xAngle, yAngle, zAngle);
+	const auto image = renderToImage(pose);
 
 	return computeSimilarity(image, m_targetImage);
 }
 
-float ViewerWidget::renderAndComputeSimilarityGpu(float xAngle, float yAngle, float zAngle)
+float ViewerWidget::renderAndComputeSimilarityGpu(const ObjectPose& pose)
 {
 	float similarity = 0.0f;
 	
 	makeCurrent();
 
 	// Render the image in the frame buffer
-	render(xAngle, yAngle, zAngle);
+	render(pose);
 
 	auto f = context()->versionFunctions<QOpenGLFunctions_4_3_Core>();
 	

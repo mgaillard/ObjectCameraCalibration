@@ -49,15 +49,27 @@ void MainWindow::render()
 			                                                 -45.0,
 			                                                 45.0,
 			                                                 2);
+		/*
+		const ObjectPose pose{
+			QVector3D(0.0, 0.0, 0.0),
+			QVector3D(xAngleInitial, yAngleInitial, zAngleInitial)
+		};
+		
+		const auto optimizedPose = runBundleAdjustment(ui.viewerWidget, targetImage, pose);
 
-		const auto result = runBundleAdjustment(ui.viewerWidget, targetImage, xAngleInitial, yAngleInitial, zAngleInitial);
+		qDebug() << "translation = " << optimizedPose.translation
+			     << " rotation = " << optimizedPose.rotation;
+		*/
+
+		const ObjectPose optimizedPose{
+			QVector3D(-0.14, -0.12, -0.17),
+			QVector3D(31.50, 41.63, -31.09)
+		};
 		
 		// Best optimization
-		const auto optimized = ui.viewerWidget->renderToImage(result.x(), result.y(), result.z());
-		optimized.save("image_optimized.png");
+		const auto optimizedImage = ui.viewerWidget->renderToImage(optimizedPose);
+		optimizedImage.save("image_optimized.png");
 	}
-
-	// TODO: Compute similarity in compute shader
 }
 
 void MainWindow::setupUi()

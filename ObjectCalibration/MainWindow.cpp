@@ -26,6 +26,30 @@ void MainWindow::render()
 		const QImage targetImage(filename);
 
 		// Ask for initial configuration
+		const double xInitial = QInputDialog::getDouble(this, 
+			                                            tr("Input X translation"),
+			                                            tr("Translation X"),
+			                                            0.0,
+			                                            -0.2,
+			                                            0.2,
+			                                            2);
+
+		const double yInitial = QInputDialog::getDouble(this, 
+			                                            tr("Input Y translation"),
+			                                            tr("Translation Y"),
+			                                            0.0,
+			                                            -0.2,
+			                                            0.2,
+			                                            2);
+
+		const double zInitial = QInputDialog::getDouble(this, 
+			                                            tr("Input Z translation"),
+			                                            tr("Translation Z"),
+			                                            0.0,
+			                                            -0.2,
+			                                            0.2,
+			                                            2);
+		
 		const double xAngleInitial = QInputDialog::getDouble(this, 
 			                                                 tr("Input Euler X angle"),
 			                                                 tr("Angle X"),
@@ -49,9 +73,9 @@ void MainWindow::render()
 			                                                 -45.0,
 			                                                 45.0,
 			                                                 2);
-		/*
+		
 		const ObjectPose pose{
-			QVector3D(0.0, 0.0, 0.0),
+			QVector3D(xInitial, yInitial, zInitial),
 			QVector3D(xAngleInitial, yAngleInitial, zAngleInitial)
 		};
 		
@@ -59,12 +83,13 @@ void MainWindow::render()
 
 		qDebug() << "translation = " << optimizedPose.translation
 			     << " rotation = " << optimizedPose.rotation;
-		*/
 
+		/*
 		const ObjectPose optimizedPose{
-			QVector3D(-0.14, -0.12, -0.17),
-			QVector3D(31.50, 41.63, -31.09)
+			QVector3D(-0.16, -0.10, 0.11),
+			QVector3D(16.49, -32.47, 0.00)
 		};
+		*/
 		
 		// Best optimization
 		const auto optimizedImage = ui.viewerWidget->renderToImage(optimizedPose);

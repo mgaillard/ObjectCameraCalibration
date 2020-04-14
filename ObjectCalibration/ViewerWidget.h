@@ -33,6 +33,8 @@ public slots:
 	void setTargetImage(const QImage& targetImage);
 	
 	void moveCamera(const ObjectPose& pose);
+
+	void moveObject(const ObjectPose& pose);
 	
 	QImage renderToImage(const ObjectPose& pose);
 
@@ -62,6 +64,7 @@ private:
 	QOpenGLDebugLogger* m_logger;
 
 	OrbitCamera m_camera;
+	QMatrix4x4 m_objectWorldMatrix;
 
 	std::unique_ptr<QOpenGLShaderProgram> m_program;
 	std::unique_ptr<QOpenGLShaderProgram> m_computeSimilarityProgram;

@@ -73,6 +73,17 @@ void ViewerWidget::moveCamera(const ObjectPose& pose)
 	m_camera.setAt(translation.map(originalCameraAt));
 }
 
+void ViewerWidget::moveObject(const ObjectPose& pose)
+{
+	QMatrix4x4 translationMatrix;
+	translationMatrix.translate(pose.translation);
+
+	const auto rotation = QQuaternion::fromEulerAngles(pose.rotation.x(), pose.rotation.y(), pose.rotation.z());
+	const QMatrix4x4 rotationMatrix(rotation.toRotationMatrix());
+	
+	m_objectWorldMatrix = translationMatrix * rotationMatrix;
+}
+
 void ViewerWidget::setTargetImage(const QImage& targetImage)
 {
 	m_targetImage = targetImage;
@@ -86,7 +97,7 @@ void ViewerWidget::render(const ObjectPose& pose)
 {
 	auto f = context()->versionFunctions<QOpenGLFunctions_4_3_Core>();
 
-	moveCamera(pose);
+	moveObject(pose);
 	
 	if (m_frameBuffer)
 	{
@@ -94,6 +105,12 @@ void ViewerWidget::render(const ObjectPose& pose)
 		m_frameBuffer->bind();
 		glViewport(0, 0, m_frameBuffer->width(), m_frameBuffer->height());
 		m_camera.setAspectRatio(float(m_frameBuffer->width()) / float(m_frameBuffer->height()));
+		m_camera.setEye({ 0.0, 0.0, 1.0 });
+		m_camera.setAt({ 0.0, 0.0, 0.0 });
+		m_camera.setUp({ -1.0, 0.0, 0.0 });
+		m_camera.setFovy(qRadiansToDegrees(2.0 * atan(4.29 / (2.0 * 4.5))));
+		m_camera.setNearPlane(0.01f);
+		m_camera.setFarPlane(10.0f);
 	}
 
 	// Transparent background
@@ -109,19 +126,18 @@ void ViewerWidget::render(const ObjectPose& pose)
 	if (m_program)
 	{
 		// Setup matrices
-		const QMatrix4x4 worldMatrix;
-		const auto normalMatrix = worldMatrix.normalMatrix();
+		const auto normalMatrix = m_objectWorldMatrix.normalMatrix();
 		const auto viewMatrix = m_camera.viewMatrix();
 		const auto projectionMatrix = m_camera.projectionMatrix();
 		const auto pvMatrix = projectionMatrix * viewMatrix;
-		const auto pvmMatrix = pvMatrix * worldMatrix;
+		const auto pvmMatrix = pvMatrix * m_objectWorldMatrix;
 
 		m_program->bind();
 
 		// Update matrices
 		m_program->setUniformValue("P", projectionMatrix);
 		m_program->setUniformValue("V", viewMatrix);
-		m_program->setUniformValue("M", worldMatrix);
+		m_program->setUniformValue("M", m_objectWorldMatrix);
 		m_program->setUniformValue("N", normalMatrix);
 		m_program->setUniformValue("PV", pvMatrix);
 		m_program->setUniformValue("PVM", pvmMatrix);
@@ -271,78 +287,6 @@ void ViewerWidget::paintGL()
 {
 	glClearColor(0.5, 0.5, 0.5, 1.0);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-	
-	/*
-	auto f = context()->versionFunctions<QOpenGLFunctions_4_3_Core>();
-	
-	if (m_frameBuffer)
-	{
-		// Attach the frame buffer and set the resolution of the viewport
-		m_frameBuffer->bind();
-		glViewport(0, 0, m_frameBuffer->width(), m_frameBuffer->height());
-		m_camera.setAspectRatio(float(m_frameBuffer->width()) / m_frameBuffer->height());
-	}
-
-	// Transparent background
-	glClearColor(0.0, 0.0, 0.0, 0.0);
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-	glEnable(GL_DEPTH_TEST);
-
-	// Enable transparency
-	glEnable(GL_BLEND);
-	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-
-	// Paint the object in the frame buffer
-	if (m_program)
-	{
-		// Setup matrices
-		const QMatrix4x4 worldMatrix;
-		const auto normalMatrix = worldMatrix.normalMatrix();
-		const auto viewMatrix = m_camera.viewMatrix();
-		const auto projectionMatrix = m_camera.projectionMatrix();
-		const auto pvMatrix = projectionMatrix * viewMatrix;
-		const auto pvmMatrix = pvMatrix * worldMatrix;
-
-		m_program->bind();
-
-		// Update matrices
-		m_program->setUniformValue("P", projectionMatrix);
-		m_program->setUniformValue("V", viewMatrix);
-		m_program->setUniformValue("M", worldMatrix);
-		m_program->setUniformValue("N", normalMatrix);
-		m_program->setUniformValue("PV", pvMatrix);
-		m_program->setUniformValue("PVM", pvmMatrix);
-
-		// Bind the VAO containing the patches
-		QOpenGLVertexArrayObject::Binder vaoBinder(&m_objectVao);
-
-		// Bind the texture
-		const auto textureUnit = 0;
-		m_program->setUniformValue("image", textureUnit);
-		m_objectTexture.bind(textureUnit);
-		
-		f->glDrawElements(GL_TRIANGLES,
-			              m_objectEbo.size(),
-			              GL_UNSIGNED_INT,
-			              nullptr);
-		
-		m_program->release();
-	}
-
-	if (m_frameBuffer)
-	{
-		m_frameBuffer->release();
-
-		// Save content of frame buffer
-		const QImage image(m_frameBuffer->toImage());
-		// Compare to the target image
-		const QImage targetImage(":/MainWindow/Resources/target.png");
-
-		// image.save("image.png");
-		
-		qDebug() << computeSimilarity(image, targetImage);
-	}
-	*/
 }
 
 void ViewerWidget::mousePressEvent(QMouseEvent* event)
@@ -444,15 +388,15 @@ void ViewerWidget::initialize()
 
 void ViewerWidget::initializeVbo()
 {
-	std::vector<QVector3D> data = {
-		{-0.105, -0.1485, 0.0}, // Vertex
-		{0.0, 1.0, 0.0},		 // UV
-		{0.105, -0.1485, 0.0},  // Vertex
-		{0.0, 0.0, 0.0},		 // UV
-		{0.105, 0.1485, 0.0},   // Vertex
-		{1.0, 0.0, 0.0},		 // UV
-		{-0.105, 0.1485, 0.0},  // Vertex
-		{1.0, 1.0, 0.0},		 // UV
+	const std::vector<QVector3D> data = {
+		{-0.1485, -0.105, 0.0}, // Vertex
+		{ 0.0, 0.0, 0.0 },		 // UV
+		{0.1485, -0.105, 0.0},  // Vertex
+		{ 1.0, 0.0, 0.0 },		 // UV
+		{0.1485, 0.105, 0.0},   // Vertex
+		{ 1.0, 1.0, 0.0 },		 // UV
+		{-0.1485, 0.105, 0.0},  // Vertex
+		{ 0.0, 1.0, 0.0 },		 // UV
 	};
 
 	// Init VBO

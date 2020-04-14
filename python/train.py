@@ -18,33 +18,54 @@ from Images import Images
 # Learning parameters
 img_rows, img_cols = 302, 403
 input_shape = (img_rows, img_cols, 4)
-batch_size = 250
-epochs = 100
-model_load = True
-model_train = False
+batch_size = 64
+epochs = 20
+model_load = False
+model_train = True
 model_save = False
 model_file = 'calibration_model.h5'
-dataset_folder = "E:\\CS635\\dataset"
-testset_folder = "E:\\CS635\\testset"
+dataset_folder = "E:\\CS635\\5d_dataset"
+# dataset_folder = "/mnt/e/CS635/dataset"
 train_folder = os.path.join(dataset_folder, "train")
 validation_folder = os.path.join(dataset_folder, "validation")
 translation_range = 0.2
 rotation_range = 45.0
+rotation_z_range = 180.0
 
-# This function keeps the learning rate at 0.002 for the first ten epochs.
-def scheduler(epoch):
-    if epoch < 10:
-        return 0.002
-    else:
-        return 0.001
+# Infinity norm over the dataset
+def tran_max(y_true, y_pred):
+    translations_true = tf.gather(y_true, [0, 1, 2], axis=1)
+    translations_pred = tf.gather(y_pred, [0, 1, 2], axis=1)
+    translationErrors = translation_range * (translations_true - translations_pred)
+    return tf.norm(translationErrors, ord=np.inf)
 
-# Infinity norm averaged over the dataset
-def translation_inf(y_true, y_pred):
-    return translation_range * tf.norm(y_true[0:3] - y_pred[0:3], ord=np.inf)
+# Infinity norm over the dataset
+def rot_max(y_true, y_pred):
+    rotations_true = tf.gather(y_true, [3, 4, 5], axis=1)
+    rotations_pred = tf.gather(y_pred, [3, 4, 5], axis=1)
+    rotationErrors = tf.math.multiply(rotations_true - rotations_pred, [rotation_range, rotation_range, rotation_z_range])
+    return tf.norm(rotationErrors, ord=np.inf)
 
-# Infinity norm averaged over the dataset
-def rotation_inf(y_true, y_pred):
-    return rotation_range * tf.norm(y_true[3:6] - y_pred[3:6], ord=np.inf)
+# Average norm over the dataset
+def tran_avg(y_true, y_pred):
+    translations_true = tf.gather(y_true, [0, 1, 2], axis=1)
+    translations_pred = tf.gather(y_pred, [0, 1, 2], axis=1)
+    translationErrors = translation_range * (translations_true - translations_pred)
+    return tf.reduce_mean(tf.math.abs(translationErrors))
+
+# Average norm over the dataset
+def rot_avg(y_true, y_pred):
+    rotations_true = tf.gather(y_true, [3, 4, 5], axis=1)
+    rotations_pred = tf.gather(y_pred, [3, 4, 5], axis=1)
+    rotationErrors = tf.math.multiply(rotations_true - rotations_pred, [rotation_range, rotation_range, rotation_z_range])
+    return tf.reduce_mean(tf.math.abs(rotationErrors))
+
+# Change the frame of reference
+# The new representation makes it easier for the network to infer parameters
+def transform_parameters(parameters):
+    # z = 1.0 - Z
+    parameters[2] = 1.0 - parameters[2]
+    return parameters
 
 # Load and preprocess an image in the dataset
 def read_image(file_path):
@@ -59,20 +80,23 @@ def read_image(file_path):
     txt_file = tf.io.read_file(txt_file_path)
     parameters = tf.strings.to_number(tf.strings.split(txt_file, sep='\n'))
 
+    # Change the frame of reference
+    # parameters = tf.map_fn(transform_parameters, parameters)
+
     # Normalize data
-    parameters = tf.math.divide(parameters, [translation_range, translation_range, translation_range, rotation_range, rotation_range, rotation_range])
+    parameters = tf.math.divide(parameters, [translation_range, translation_range, translation_range, rotation_range, rotation_range, rotation_z_range])
     
     return img, parameters
 
 # Load training set
-train_dataset = tf.data.Dataset.list_files(train_folder + '\\*.png', shuffle=False) \
+train_dataset = tf.data.Dataset.list_files(os.path.join(train_folder, '*.png'), shuffle=False) \
                                .map(read_image, num_parallel_calls=tf.data.experimental.AUTOTUNE) \
-                               .shuffle(2000) \
+                               .shuffle(8000) \
                                .batch(batch_size) \
                                .prefetch(tf.data.experimental.AUTOTUNE)
 
 # Load validation set
-validation_dataset = tf.data.Dataset.list_files(validation_folder + '\\*.png', shuffle=False) \
+validation_dataset = tf.data.Dataset.list_files(os.path.join(validation_folder, '*.png'), shuffle=False) \
                                     .map(read_image, num_parallel_calls=tf.data.experimental.AUTOTUNE).cache() \
                                     .batch(batch_size) \
                                     .prefetch(tf.data.experimental.AUTOTUNE)
@@ -80,8 +104,10 @@ validation_dataset = tf.data.Dataset.list_files(validation_folder + '\\*.png', s
 if model_load:
     # Just load the model without training
     model = load_model(model_file, custom_objects={
-        'translation_inf': translation_inf,
-        'rotation_inf': rotation_inf})
+        'tran_max': tran_max,
+        'rot_max': rot_max,
+        'tran_avg': tran_avg,
+        'rot_avg': rot_avg})
     model.summary()
 
 else:
@@ -98,14 +124,17 @@ else:
     x = MaxPooling2D((2, 2), strides=(2, 2))(x)
     x = Conv2D(8, (3, 3), activation='relu', padding='same')(x)
     x = Conv2D(8, (3, 3), activation='relu', padding='same')(x)
+    x = MaxPooling2D((2, 2), strides=(2, 2))(x)
+    x = Conv2D(8, (3, 3), activation='relu', padding='same')(x)
+    x = Conv2D(8, (3, 3), activation='relu', padding='same')(x)
     x = Flatten()(x)
     x = Dense(256, activation='relu')(x)
-    x = Dropout(0.2)(x)
+    x = Dropout(0.05)(x)
     x = Dense(256, activation='relu')(x)
-    x = Dropout(0.2)(x)
+    x = Dropout(0.05)(x)
     prediction = Dense(6, activation='linear')(x)
     model = Model(inputs=input, outputs=prediction)
-    model.compile(loss='mean_squared_error', optimizer='adam', metrics=[translation_inf, rotation_inf])
+    model.compile(loss='mean_squared_error', optimizer='adam', metrics=[tran_avg, rot_avg, tran_max, rot_max])
 
     # Display model summary
     model.summary()
@@ -116,13 +145,10 @@ if model_train:
     file_writer = tf.summary.create_file_writer(log_dir + "\\images")
     tensorboard_callback = TensorBoard(log_dir=log_dir, histogram_freq=1)
 
-    # Variable learning rate
-    scheduler_callback = LearningRateScheduler(scheduler)
-
     model.fit(train_dataset,
               validation_data=validation_dataset,
               epochs=epochs,
-              callbacks=[tensorboard_callback, scheduler_callback])
+              callbacks=[tensorboard_callback])
 
 if model_save:
     # Save the model
@@ -141,8 +167,8 @@ for images, parameters in validation_dataset:
     for i in range(0, len(parameters_pred)):
         translation_true = translation_range * parameters_true[i][0:3]
         translation_pred = translation_range * parameters_pred[i][0:3]
-        rotation_true = rotation_range * parameters_true[i][3:6]
-        rotation_pred = rotation_range * parameters_pred[i][3:6]
+        rotation_true = np.multiply(parameters_true[i][3:6], [rotation_range, rotation_range, rotation_z_range])
+        rotation_pred = np.multiply(parameters_pred[i][3:6], [rotation_range, rotation_range, rotation_z_range])
 
         mean_translation_error += np.linalg.norm(translation_true - translation_pred, np.inf)
         mean_rotation_error += np.linalg.norm(rotation_true - rotation_pred, np.inf)

@@ -249,7 +249,7 @@ if model_predict:
     for i in range(0, len(predictions)):
         translations = transform_to_world(predictions[i][0:3])
         rotations = np.multiply(predictions[i][3:6], [rotation_range, rotation_range, rotation_z_range])
-        filepath = os.path.join(test_folder, "../test_full", "{:05d}.txt".format(i))
+        filepath = os.path.join(test_folder, "../test_full", "{:05d}_pred.txt".format(i))
         with open(filepath, "w") as file:
             file.write("{:.2f}\n".format(translations[0]))
             file.write("{:.2f}\n".format(translations[1]))

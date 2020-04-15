@@ -17,11 +17,11 @@ double BundleAdjustment::operator()(const ColumnVector& parameters) const
 	const auto pose = parametersToObjectPose(parameters);
 
 	const auto similarity = m_viewerWidget->renderAndComputeSimilarityGpu(pose);
-
+	/*
 	qDebug() << "similarity " << similarity
 	         << " translation = " << pose.translation
 	         << " rotation = " << pose.rotation;
-	
+	*/
 	return similarity;
 }
 

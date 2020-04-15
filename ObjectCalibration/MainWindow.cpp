@@ -14,87 +14,56 @@ MainWindow::MainWindow(QWidget *parent)
 
 void MainWindow::render()
 {
-	// Ask the user for a file to import
-	const QString filename = QFileDialog::getOpenFileName(this,
-		                                                  tr("Load an image"),
-		                                                  "",
-		                                                  tr("Images (*.png *.jpg)"));
-
-	// Check if file exists
-	if (QFileInfo::exists(filename))
+	float avgMaxTranslationError = 0.0;
+	float avgMaxRotationError = 0.0;
+	int imageNumber = 0;
+	
+	// Automatic evaluation of optimization
+	const auto inputDir = QFileDialog::getExistingDirectory(this, tr("Load images in a directory"), "");
+	const QDir directory(inputDir);
+	
+	// Check if directory exists
+	if (directory.exists())
 	{
-		const QImage targetImage(filename);
+		const auto fileList = directory.entryInfoList(QStringList() << "*.png", QDir::Files);
 
-		// Ask for initial configuration
-		const double xInitial = QInputDialog::getDouble(this, 
-			                                            tr("Input X translation"),
-			                                            tr("Translation X"),
-			                                            0.0,
-			                                            -0.2,
-			                                            0.2,
-			                                            2);
+		for (const auto& file : fileList)
+		{
+			// Read parameters in txt files
+			const auto trueParametersFile = file.completeBaseName() + ".txt";
+			const auto predParametersFile = file.completeBaseName() + "_pred.txt";
+			if (directory.exists(trueParametersFile) && directory.exists(predParametersFile))
+			{
+				const auto truePose = readPose(directory.absoluteFilePath(trueParametersFile));
+				const auto predPose = readPose(directory.absoluteFilePath(predParametersFile));
 
-		const double yInitial = QInputDialog::getDouble(this, 
-			                                            tr("Input Y translation"),
-			                                            tr("Translation Y"),
-			                                            0.0,
-			                                            -0.2,
-			                                            0.2,
-			                                            2);
+				const QImage targetImage(file.canonicalFilePath());
+				
+				const auto optimPose = runBundleAdjustment(ui.viewerWidget, targetImage, predPose);
 
-		const double zInitial = QInputDialog::getDouble(this, 
-			                                            tr("Input Z translation"),
-			                                            tr("Translation Z"),
-			                                            0.0,
-			                                            -0.2,
-			                                            0.2,
-			                                            2);
-		
-		const double xAngleInitial = QInputDialog::getDouble(this, 
-			                                                 tr("Input Euler X angle"),
-			                                                 tr("Angle X"),
-			                                                 0.0,
-			                                                 -45.0,
-			                                                 45.0,
-			                                                 2);
+				// Compare optimized pose to ground truth
+				const auto translationError = maxTranslationError(truePose, optimPose);
+				const auto rotationError = maxRotationError(truePose, optimPose);
 
-		const double yAngleInitial = QInputDialog::getDouble(this, 
-			                                                 tr("Input Euler Y angle"),
-			                                                 tr("Angle Y"),
-			                                                 0.0,
-			                                                 -45.0,
-			                                                 45.0,
-			                                                 2);
+				// Compute statistics
+				avgMaxTranslationError += translationError;
+				avgMaxRotationError += rotationError;
+				imageNumber += 1;
 
-		const double zAngleInitial = QInputDialog::getDouble(this, 
-			                                                 tr("Input Euler Z angle"),
-			                                                 tr("Angle Z"),
-			                                                 0.0,
-			                                                 -45.0,
-			                                                 45.0,
-			                                                 2);
-		
-		const ObjectPose pose{
-			QVector3D(xInitial, yInitial, zInitial),
-			QVector3D(xAngleInitial, yAngleInitial, zAngleInitial)
-		};
-		
-		const auto optimizedPose = runBundleAdjustment(ui.viewerWidget, targetImage, pose);
+				// Display error for this image
+				qDebug() << file.fileName() << " " << translationError << " " << rotationError;
 
-		qDebug() << "translation = " << optimizedPose.translation
-			     << " rotation = " << optimizedPose.rotation;
-
-		/*
-		const ObjectPose optimizedPose{
-			QVector3D(-0.16, -0.10, 0.11),
-			QVector3D(16.49, -32.47, 0.00)
-		};
-		*/
-		
-		// Best optimization
-		const auto optimizedImage = ui.viewerWidget->renderToImage(optimizedPose);
-		optimizedImage.save("image_optimized.png");
+				// TODO: Render each image and the error maps in a separate folder
+			}
+		}
 	}
+
+	avgMaxTranslationError /= float(imageNumber);
+	avgMaxRotationError /= float(imageNumber);
+
+	qInfo() << "Number of images: " << imageNumber;
+	qInfo() << "Average infinity norm for translations: " << avgMaxTranslationError;
+	qInfo() << "Average infinity norm for rotations: " << avgMaxRotationError;
 }
 
 void MainWindow::setupUi()

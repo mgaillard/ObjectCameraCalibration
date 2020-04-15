@@ -42,3 +42,13 @@ struct ObjectPose
 		rotation.setZ(normalizedRotation.z() * RotationRange);
 	}
 };
+
+ObjectPose readPose(const QString& filename);
+
+float maxTranslationError(const ObjectPose& a, const ObjectPose& b);
+
+float maxRotationError(const ObjectPose& a, const ObjectPose& b);
+
+float avgTranslationError(const ObjectPose& a, const ObjectPose& b);
+
+float avgRotationError(const ObjectPose& a, const ObjectPose& b);

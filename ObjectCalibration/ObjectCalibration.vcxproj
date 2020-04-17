@@ -91,6 +91,7 @@
     <ClCompile Include="Camera.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="MainWindow.cpp" />
+    <ClCompile Include="MathUtils.cpp" />
     <ClCompile Include="ObjectPose.cpp" />
     <ClCompile Include="Similarity.cpp" />
     <ClCompile Include="ViewerWidget.cpp" />
@@ -110,6 +111,7 @@
   <ItemGroup>
     <ClInclude Include="BundleAdjustment.h" />
     <ClInclude Include="Camera.h" />
+    <ClInclude Include="MathUtils.h" />
     <ClInclude Include="ObjectPose.h" />
     <ClInclude Include="Similarity.h" />
   </ItemGroup>

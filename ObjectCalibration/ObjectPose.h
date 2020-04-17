@@ -45,10 +45,12 @@ struct ObjectPose
 
 ObjectPose readPose(const QString& filename);
 
+bool savePose(const ObjectPose& pose,const QString& filename);
+
 float maxTranslationError(const ObjectPose& a, const ObjectPose& b);
 
 float maxRotationError(const ObjectPose& a, const ObjectPose& b);
 
-float avgTranslationError(const ObjectPose& a, const ObjectPose& b);
+float translationError(const ObjectPose& a, const ObjectPose& b);
 
-float avgRotationError(const ObjectPose& a, const ObjectPose& b);
+float rotationError(const ObjectPose& a, const ObjectPose& b);

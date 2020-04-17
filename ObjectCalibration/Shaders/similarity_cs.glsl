@@ -15,6 +15,19 @@ layout(binding = 2, offset = 20) uniform atomic_uint meanAbsoluteError;
 // The coefficient to apply when rounding float numbers
 uniform float multiplication_before_round = 1.0;
 
+// All components are in the range [0…1], including hue.
+// Source: https://stackoverflow.com/questions/15095909/from-rgb-to-hsv-in-opengl-glsl
+vec3 rgb2hsv(vec3 c)
+{
+	vec4 K = vec4(0.0, -1.0 / 3.0, 2.0 / 3.0, -1.0);
+	vec4 p = mix(vec4(c.bg, K.wz), vec4(c.gb, K.xy), step(c.b, c.g));
+	vec4 q = mix(vec4(p.xyw, c.r), vec4(c.r, p.yzx), step(p.x, c.r));
+
+	float d = q.x - min(q.w, q.y);
+	float e = 1.0e-10;
+	return vec3(abs(q.z + (q.w - q.y) / (6.0 * d + e)), d / (q.x + e), q.x);
+}
+
 // Compute the similarity between two textures
 void main()
 {
@@ -52,10 +65,16 @@ void main()
 			atomicCounterIncrement(truePositive);
 
 			// Compute Mean Absolute Error in the overlap zone
-			const vec4 diff = abs(pixelOther - pixelTarget);
-			const float sumDiff = (diff.r + diff.g + diff.b + diff.a) / 4.0;
-			const int sumDiffInt = int(round(multiplication_before_round * sumDiff));
-			atomicCounterAdd(meanAbsoluteError, sumDiffInt);
+			const vec3 pixelOtherHsv = rgb2hsv(vec3(pixelOther));
+			const vec3 pixelTargetHsv = rgb2hsv(vec3(pixelTarget));
+
+			const float pixelOtherValue = (pixelOtherHsv.z > 0.5) ? 1.0 : 0.0;
+			const float pixelTargetValue = (pixelTargetHsv.z > 0.5) ? 1.0 : 0.0;
+
+			if (pixelOtherValue == pixelTargetValue)
+			{
+				atomicCounterIncrement(meanAbsoluteError);
+			}
 		}
 		else if (otherNotTransparent && !targetNotTransparent)
 		{

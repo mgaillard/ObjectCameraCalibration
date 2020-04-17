@@ -16,12 +16,20 @@ double BundleAdjustment::operator()(const ColumnVector& parameters) const
 {
 	const auto pose = parametersToObjectPose(parameters);
 
-	const auto similarity = m_viewerWidget->renderAndComputeSimilarityGpu(pose);
-	/*
-	qDebug() << "similarity " << similarity
-	         << " translation = " << pose.translation
-	         << " rotation = " << pose.rotation;
-	*/
+	auto similarity = m_viewerWidget->renderAndComputeSimilarityGpu(pose);
+	
+	
+	if (isnan(similarity))
+	{
+		qWarning() << "nan objective function detected";
+
+		qDebug() << "similarity " << similarity
+			     << " translation = " << pose.translation
+			     << " rotation = " << pose.rotation;
+		
+		similarity = -1.0;
+	}
+	
 	return similarity;
 }
 
@@ -73,9 +81,9 @@ ObjectPose runBundleAdjustment(
 	// Initial configuration
 	auto parameters = BundleAdjustment::objectPoseToParameters(pose);
 
-	const float eps = 1e-1;
+	const float eps = 1e-2;
 	find_max_using_approximate_derivatives(bfgs_search_strategy(),
-		                                   objective_delta_stop_strategy(1e-6),
+		                                   objective_delta_stop_strategy(1e-8),
 		                                   problem,
 		                                   parameters,
 		                                   1.0,

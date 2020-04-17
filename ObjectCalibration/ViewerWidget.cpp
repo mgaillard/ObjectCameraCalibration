@@ -245,16 +245,20 @@ float ViewerWidget::renderAndComputeSimilarityGpu(const ObjectPose& pose)
 		const auto fn = float(counterValues[2]);
 		const auto numerator = float(counterValues[3]) / multiplicationBeforeRound;
 		const auto denominator = float(counterValues[4]) / multiplicationBeforeRound;
-		const auto maeSum = float(counterValues[5]) / multiplicationBeforeRound;
+		const auto maeSum = float(counterValues[5]);
 
 		// Compute the Dice Coefficient
 		const auto diceCoefficient = (2.f * tp) / (2.f * tp + fp + fn);
 
 		// Compute the fuzzy Dice Coefficient
-		const auto fuzzyDiceCoefficient = 2.f * (numerator + 1.f) / (denominator + 1.f);
+		const auto fuzzyDiceCoefficient = (2.f * numerator + 1.f) / (denominator + 1.f);
 
 		// Compute the mean absolute error
-		const auto mae = maeSum / float(tp);
+		float mae = 0.0;
+		if (tp > 0.0)
+		{
+			mae = maeSum / float(tp);
+		}
 
 		// The similarity is 90% based on silhouettes overlap and 10% based on absolute error
 		similarity = 0.9f * fuzzyDiceCoefficient + 0.1f * mae;

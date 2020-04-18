@@ -4,7 +4,14 @@
 
 struct ObjectPose
 {
+	/**
+	 * \brief 3D translation from the origin to the center of the object
+	 */
 	QVector3D translation;
+
+	/**
+	 * \brief Euler angles (ZXY) in degrees
+	 */
 	QVector3D rotation;
 
 	static const float TranslationRange;

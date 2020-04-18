@@ -92,6 +92,7 @@ float rotationError(const ObjectPose& a, const ObjectPose& b)
 	const auto qb = QQuaternion::fromEulerAngles(b.rotation).normalized();
 
 	const auto dot = std::abs(QQuaternion::dotProduct(qa, qb));
-	
-	return std::acos(clamp(dot, 0.0f, 1.0f));
+
+	// The unsigned relative rotation angle between 2 unit quaternions
+	return 2.0f * std::acos(clamp(dot, 0.0f, 1.0f));
 }

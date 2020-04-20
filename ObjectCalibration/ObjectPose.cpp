@@ -6,8 +6,8 @@
 
 #include "MathUtils.h"
 
-const float ObjectPose::TranslationRange = 0.2f;
-const float ObjectPose::RotationRange = 45.0f;
+const QVector3D ObjectPose::TranslationRange = { 0.2f, 0.2f, 0.2f };
+const QVector3D ObjectPose::RotationRange = { 45.0f, 45.0f, 180.0f };
 
 ObjectPose readPose(const QString& filename)
 {
@@ -17,16 +17,16 @@ ObjectPose readPose(const QString& filename)
 
 	if (file.open(QIODevice::ReadOnly | QIODevice::Text))
 	{
-		float x, y, z, xAngle, yAngle, zAngle;
+		float x, y, z, wAngle, xAngle, yAngle, zAngle;
 		QTextStream stream(&file);
-		stream >> x >> y >> z >> xAngle >> yAngle >> zAngle;
+		stream >> x >> y >> z >> wAngle >> xAngle >> yAngle >> zAngle;
 
 		pose.translation.setX(x);
 		pose.translation.setY(y);
 		pose.translation.setZ(z);
-		pose.rotation.setX(xAngle);
-		pose.rotation.setY(yAngle);
-		pose.rotation.setZ(zAngle);
+
+		const QQuaternion quaternion(wAngle, xAngle, yAngle, zAngle);
+		pose.rotation = quaternion.toEulerAngles();
 
 		file.close();
 	}

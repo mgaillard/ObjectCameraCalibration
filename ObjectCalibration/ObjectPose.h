@@ -14,39 +14,39 @@ struct ObjectPose
 	 */
 	QVector3D rotation;
 
-	static const float TranslationRange;
-	static const float RotationRange;
+	static const QVector3D TranslationRange;
+	static const QVector3D RotationRange;
 
 	QVector3D normalizedTranslation() const
 	{
 		return {
-			translation.x() / TranslationRange,
-			translation.y() / TranslationRange,
-			translation.z() / TranslationRange
+			translation.x() / TranslationRange.x(),
+			translation.y() / TranslationRange.y(),
+			translation.z() / TranslationRange.z()
 		};
 	}
 
 	QVector3D normalizedRotation() const
 	{
 		return {
-			rotation.x() / RotationRange,
-			rotation.y() / RotationRange,
-			rotation.z() / RotationRange
+			rotation.x() / RotationRange.x(),
+			rotation.y() / RotationRange.y(),
+			rotation.z() / RotationRange.z()
 		};
 	}
 
 	void setNormalizedTranslation(const QVector3D& normalizedTranslation)
 	{
-		translation.setX(normalizedTranslation.x() * TranslationRange);
-		translation.setY(normalizedTranslation.y() * TranslationRange);
-		translation.setZ(normalizedTranslation.z() * TranslationRange);
+		translation.setX(normalizedTranslation.x() * TranslationRange.x());
+		translation.setY(normalizedTranslation.y() * TranslationRange.y());
+		translation.setZ(normalizedTranslation.z() * TranslationRange.z());
 	}
 
 	void setNormalizedRotation(const QVector3D& normalizedRotation)
 	{
-		rotation.setX(normalizedRotation.x() * RotationRange);
-		rotation.setY(normalizedRotation.y() * RotationRange);
-		rotation.setZ(normalizedRotation.z() * RotationRange);
+		rotation.setX(normalizedRotation.x() * RotationRange.x());
+		rotation.setY(normalizedRotation.y() * RotationRange.y());
+		rotation.setZ(normalizedRotation.z() * RotationRange.z());
 	}
 };
 

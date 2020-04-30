@@ -12,6 +12,7 @@
 
 #include "Camera.h"
 #include "ObjectPose.h"
+#include "Mesh.h"
 
 class ViewerWidget : public QOpenGLWidget, protected QOpenGLFunctions_4_3_Core
 {
@@ -64,6 +65,8 @@ private:
 	QOpenGLDebugLogger* m_logger;
 
 	OrbitCamera m_camera;
+	Mesh m_object;
+	QMatrix4x4 m_objectMatrix;
 	QMatrix4x4 m_objectWorldMatrix;
 
 	std::unique_ptr<QOpenGLShaderProgram> m_program;
@@ -84,6 +87,4 @@ private:
 	// Target texture
 	QImage m_targetImage;
 	QOpenGLTexture m_targetTexture;
-
-	// TODO: Add a compute shader to find the distance between two images
 };

@@ -16,9 +16,15 @@ ViewerWidget::ViewerWidget(QWidget* parent) :
 	m_objectVbo(QOpenGLBuffer::VertexBuffer),
 	m_objectEbo(QOpenGLBuffer::IndexBuffer),
 	m_objectTexture(QOpenGLTexture::Target2D),
+	m_similarityAtomicBuffer(0),
 	m_targetTexture(QOpenGLTexture::Target2D)
 {
+	m_objectMatrix.setToIdentity();
 	
+	m_object = Mesh::createCheckerBoardPattern();
+
+	// m_object.load("../blender/objects/cat/cat.obj");
+	// m_objectMatrix.scale(0.006);
 }
 
 ViewerWidget::~ViewerWidget()
@@ -81,7 +87,7 @@ void ViewerWidget::moveObject(const ObjectPose& pose)
 	const auto rotation = QQuaternion::fromEulerAngles(pose.rotation.x(), pose.rotation.y(), pose.rotation.z());
 	const QMatrix4x4 rotationMatrix(rotation.toRotationMatrix());
 	
-	m_objectWorldMatrix = translationMatrix * rotationMatrix;
+	m_objectWorldMatrix = translationMatrix * rotationMatrix * m_objectMatrix;
 }
 
 void ViewerWidget::setTargetImage(const QImage& targetImage)
@@ -361,8 +367,10 @@ void ViewerWidget::initialize()
 	m_program->link();
 	m_program->bind();
 
-	// Initialize the frame buffer
-	m_frameBuffer = std::make_unique<QOpenGLFramebufferObject>(4032, 3024);
+	// Initialize the frame buffer with a depth buffer
+	QOpenGLFramebufferObjectFormat fboFormat;
+	fboFormat.setAttachment(QOpenGLFramebufferObject::Depth);
+	m_frameBuffer = std::make_unique<QOpenGLFramebufferObject>(QSize(4032, 3024), fboFormat);
 
 	// Initialize vertices
 	initializeVbo();
@@ -391,17 +399,8 @@ void ViewerWidget::initialize()
 }
 
 void ViewerWidget::initializeVbo()
-{
-	const std::vector<QVector3D> data = {
-		{-0.1485, -0.105, 0.0}, // Vertex
-		{ 0.0, 0.0, 0.0 },		 // UV
-		{0.1485, -0.105, 0.0},  // Vertex
-		{ 1.0, 0.0, 0.0 },		 // UV
-		{0.1485, 0.105, 0.0},   // Vertex
-		{ 1.0, 1.0, 0.0 },		 // UV
-		{-0.1485, 0.105, 0.0},  // Vertex
-		{ 0.0, 1.0, 0.0 },		 // UV
-	};
+{	
+	std::vector<QVector3D> data = m_object.verticesAndUv();
 
 	// Init VBO
 	m_objectVbo.create();
@@ -413,7 +412,7 @@ void ViewerWidget::initializeVbo()
 void ViewerWidget::initializeEbo()
 {
 	// Indices of faces
-	std::vector<GLuint> indices = {0, 1, 3, 1, 2, 3};
+	std::vector<GLuint> indices = m_object.indices();
 
 	// Init VBO
 	m_objectEbo.create();
@@ -425,7 +424,7 @@ void ViewerWidget::initializeEbo()
 
 void ViewerWidget::initializeTexture()
 {
-	const QImage textureImage(":/MainWindow/Resources/pattern.png");
+	const QImage textureImage = m_object.texture();
 	
 	m_objectTexture.destroy();
 	m_objectTexture.create();

@@ -20,11 +20,18 @@ ViewerWidget::ViewerWidget(QWidget* parent) :
 	m_targetTexture(QOpenGLTexture::Target2D)
 {
 	m_objectMatrix.setToIdentity();
-	
-	m_object = Mesh::createCheckerBoardPattern();
 
-	// m_object.load("../blender/objects/cat/cat.obj");
+	// Pattern
+	// m_object = Mesh::createCheckerBoardPattern();
+
+	// Cat
+	// m_object.load("../blender/objects/cat/centered_cat.obj");
 	// m_objectMatrix.scale(0.006);
+
+	// Phone
+	m_object.load("../blender/objects/phone/phone.obj");
+	m_objectMatrix.translate(0.00155178, -0.0191204, -0.0446233);
+	m_objectMatrix.scale(0.01);
 }
 
 ViewerWidget::~ViewerWidget()

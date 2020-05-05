@@ -32,8 +32,6 @@ train_folder = os.path.join(dataset_folder, "train")
 validation_folder = os.path.join(dataset_folder, "validation")
 
 translation_range = 0.2
-rotation_range = 45.0
-rotation_z_range = 180.0
 quaternion_range = 1.0
 
 preprocessed_translation_xy_range = translation_range / (1.0 - translation_range)
@@ -88,30 +86,15 @@ def compute_translation_error(y_true, y_pred):
 
     return translations_true - translations_pred
 
-def compute_rotation_error(y_true, y_pred):
-    rotations_true = tf.gather(y_true, [3, 4, 5], axis=1)
-    rotations_pred = tf.gather(y_pred, [3, 4, 5], axis=1)
-    return tf.math.multiply(rotations_true - rotations_pred, [rotation_range, rotation_range, rotation_z_range])
-
 # Infinity norm over the dataset
 def tran_max(y_true, y_pred):
     translationErrors = compute_translation_error(y_true, y_pred)
     return tf.norm(translationErrors, ord=np.inf)
 
-# Infinity norm over the dataset
-def rot_max(y_true, y_pred):
-    rotationErrors = compute_rotation_error(y_true, y_pred)
-    return tf.norm(rotationErrors, ord=np.inf)
-
 # Average norm over the dataset
 def tran_avg(y_true, y_pred):
     translationErrors = compute_translation_error(y_true, y_pred)
     return tf.reduce_mean(tf.math.abs(translationErrors))
-
-# Average norm over the dataset
-def rot_avg(y_true, y_pred):
-    rotationErrors = compute_rotation_error(y_true, y_pred)
-    return tf.reduce_mean(tf.math.abs(rotationErrors))
 
 def quaternion_angles(quaternion_true, quaternion_pred):
     # Normalize
@@ -152,13 +135,16 @@ def read_image(file_path):
     # Read the PNG image file
     img = tf.io.read_file(file_path)
     img = tf.image.decode_png(img, channels=4)
-    # img = tf.image.resize(img, [img_cols, img_rows])
+    # img = tf.image.resize(img, [img_rows, img_cols])
     img = tf.image.convert_image_dtype(img, tf.float32)
     
     # Open the txt file and read the parameters
     txt_file_path = tf.strings.regex_replace(file_path, "\.png$", ".txt")
     txt_file = tf.io.read_file(txt_file_path)
     parameters = tf.strings.to_number(tf.strings.split(txt_file, sep='\n'))
+
+    # Add noise to the parameters
+    # parameters = tf.math.add(parameters, tf.random.normal(tf.shape(parameters), 0.0, 0.02))
 
     # Compute depth: z = 1 - z
     parameters = tf.math.subtract(parameters, [0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0])
@@ -196,9 +182,7 @@ if model_load:
     # Just load the model without training
     model = load_model(model_file, custom_objects={
         'tran_max': tran_max,
-        'rot_max': rot_max,
         'tran_avg': tran_avg,
-        'rot_avg': rot_avg,
         'quat_avg': quat_avg,
         'quat_max': quat_max})
     model.summary()

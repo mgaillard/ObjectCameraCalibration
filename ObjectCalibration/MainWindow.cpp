@@ -67,6 +67,8 @@ void MainWindow::render()
 				// Render each image and the error maps in a separate folder
 				const auto optimImage = ui.viewerWidget->renderToImage(optimPose);
 				optimImage.save(directory.absoluteFilePath(file.completeBaseName() + "_optim.png"));
+				const auto predImage = ui.viewerWidget->renderToImage(predPose);
+				predImage.save(directory.absoluteFilePath(file.completeBaseName() + "_pred.png"));
 				const auto errorImage = mseSimilarityErrorMap(optimImage, targetImage);
 				errorImage.save(directory.absoluteFilePath(file.completeBaseName() + "_rror.png"));
 			}
